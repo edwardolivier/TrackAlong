@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrackAlong Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<style>
+  /* Fallback tile background so the map frame is always visible */
+  .leaflet-container { background: #4a5568 !important; }
+</style>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body, #map { width: 100%; height: 100%; }
+
+  #toolbar {
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    z-index: 1000;
+    display: flex;
+    gap: 6px;
+  }
+  .tb-btn {
+    background: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: sans-serif;
+    transition: background 0.15s;
+  }
+  .tb-btn:hover { background: #334155; }
+  .tb-btn.active { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+
+  #status-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    background: rgba(15,23,42,0.85);
+    color: #94a3b8;
+    font-size: 12px;
+    font-family: monospace;
+    padding: 4px 10px;
+    z-index: 1000;
+  }
+  .leaflet-container { background: #0f172a; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="toolbar">
+  <button class="tb-btn active" id="btn-add" onclick="setMode('add')">+ Add Point</button>
+  <button class="tb-btn" id="btn-move" onclick="setMode('move')">Move Point</button>
+  <button class="tb-btn" id="btn-delete" onclick="setMode('delete')">Delete Point</button>
+  <button class="tb-btn" id="btn-clear" onclick="clearRoute()">Clear All</button>
+</div>
+<div id="status-bar" id="status">Click on the map to add route waypoints.</div>
+
+<script>
+// --- Map init ---
+var map = L.map('map', {
+  center: [-25.0, 134.0],  // centre of Australia
+  zoom: 5,
+  zoomControl: true
+});
+
+// Tile layers — ordered so OSM (most reliable) loads first while others try
+var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19
+});
+
+var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://opentopomap.org">OpenTopoMap</a> contributors',
+  maxZoom: 17
+});
+
+var satelliteLayer = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri',
+  maxZoom: 19
+});
+
+var terrainLayer = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri',
+  maxZoom: 19
+});
+
+var baseLayers = {
+  "Street (OSM)": osmLayer,
+  "Topographic (OpenTopoMap)": topoLayer,
+  "Esri Terrain": terrainLayer,
+  "Satellite (Esri)": satelliteLayer
+};
+
+// --- Geology overlay layers (WMS) ---
+// Geoscience Australia — 1:1 M national surface geology
+var geologyGA = L.tileLayer.wms(
+  'https://services.ga.gov.au/gis/services/GA_Surface_Geology/MapServer/WMSServer', {
+  layers: '0',
+  format: 'image/png',
+  transparent: true,
+  opacity: 0.45,
+  attribution: '© <a href="https://www.ga.gov.au">Geoscience Australia</a>'
+});
+
+// Queensland Government — 1:100 k regional geology
+var geologyQLD = L.tileLayer.wms(
+  'https://spatial-gis.information.qld.gov.au/arcgis/services/GeoscientificInformation/GeologyRegional/MapServer/WMSServer', {
+  layers: '0',
+  format: 'image/png',
+  transparent: true,
+  opacity: 0.50,
+  attribution: '© <a href="https://www.resources.qld.gov.au">Queensland Government</a>'
+});
+
+var overlayLayers = {
+  "Geology — National (GA 1:1M)":   geologyGA,
+  "Geology — QLD Detail (1:100k)":  geologyQLD
+};
+
+// Start with OSM — it loads fastest and needs no auth
+osmLayer.addTo(map);
+L.control.layers(baseLayers, overlayLayers, { position: 'topleft', collapsed: false }).addTo(map);
+
+// Try switching to topo once OSM has confirmed it works
+osmLayer.once('tileload', function() {
+  // OSM works — also offer topo. User can switch via layer control.
+});
+
+// --- State ---
+var waypoints = [];       // [{lat, lng, marker}]
+var routeLine = null;
+var mode = 'add';
+
+// --- WebChannel bridge ---
+var bridge = null;
+new QWebChannel(qt.webChannelTransport, function(channel) {
+  bridge = channel.objects.bridge;
+});
+
+function notifyPython() {
+  if (!bridge) return;
+  var pts = waypoints.map(function(w) { return [w.lat, w.lng]; });
+  bridge.onRouteChanged(JSON.stringify(pts));
+}
+
+// --- Mode control ---
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tb-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('btn-' + m).classList.add('active');
+  setStatus(mode === 'add' ? 'Click map to add waypoints.' :
+            mode === 'delete' ? 'Click a marker to delete it.' :
+            'Drag a marker to move it.');
+  // Disable map click-to-add when not in add mode
+}
+
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+// --- Waypoint management ---
+function createMarker(lat, lng, index) {
+  var marker = L.circleMarker([lat, lng], {
+    radius: index === 0 ? 8 : 6,
+    fillColor: index === 0 ? '#22c55e' : waypoints.length === 0 ? '#f97316' : '#0ea5e9',
+    color: '#fff',
+    weight: 2,
+    fillOpacity: 0.9,
+    draggable: true
+  }).addTo(map);
+
+  marker.on('click', function(e) {
+    if (mode === 'delete') {
+      L.DomEvent.stopPropagation(e);
+      removeWaypoint(index);
+    }
+  });
+
+  marker.on('dragend', function() {
+    var latlng = marker.getLatLng();
+    waypoints[index].lat = latlng.lat;
+    waypoints[index].lng = latlng.lng;
+    refreshRoute();
+    notifyPython();
+  });
+
+  return marker;
+}
+
+function rebuildMarkers() {
+  waypoints.forEach(function(w) {
+    if (w.marker) map.removeLayer(w.marker);
+    w.marker = null;
+  });
+  waypoints.forEach(function(w, i) {
+    w.marker = createMarker(w.lat, w.lng, i);
+  });
+}
+
+function addWaypoint(lat, lng) {
+  waypoints.push({ lat: lat, lng: lng, marker: null });
+  rebuildMarkers();
+  refreshRoute();
+  notifyPython();
+  setStatus('Route: ' + waypoints.length + ' point(s). Total ≈ ' + routeLengthKm() + ' km');
+}
+
+function removeWaypoint(index) {
+  if (waypoints[index].marker) map.removeLayer(waypoints[index].marker);
+  waypoints.splice(index, 1);
+  rebuildMarkers();
+  refreshRoute();
+  notifyPython();
+}
+
+function clearRoute() {
+  waypoints.forEach(function(w) { if (w.marker) map.removeLayer(w.marker); });
+  waypoints = [];
+  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  notifyPython();
+  setStatus('Route cleared. Click map to add waypoints.');
+}
+
+function refreshRoute() {
+  if (routeLine) map.removeLayer(routeLine);
+  if (waypoints.length < 2) { routeLine = null; return; }
+  var latlngs = waypoints.map(function(w) { return [w.lat, w.lng]; });
+  routeLine = L.polyline(latlngs, {
+    color: '#f59e0b',
+    weight: 3,
+    opacity: 0.85,
+    dashArray: '8 4'
+  }).addTo(map);
+}
+
+function routeLengthKm() {
+  var total = 0;
+  for (var i = 1; i < waypoints.length; i++) {
+    var a = L.latLng(waypoints[i-1].lat, waypoints[i-1].lng);
+    var b = L.latLng(waypoints[i].lat, waypoints[i].lng);
+    total += a.distanceTo(b);
+  }
+  return (total / 1000).toFixed(1);
+}
+
+// --- Map click ---
+map.on('click', function(e) {
+  if (mode === 'add') {
+    addWaypoint(e.latlng.lat, e.latlng.lng);
+  }
+});
+
+// --- Called from Python to set route programmatically ---
+function setRouteFromPython(jsonStr) {
+  var pts = JSON.parse(jsonStr);
+  clearRoute();
+  pts.forEach(function(p) { addWaypoint(p[0], p[1]); });
+}
+
+// --- Show computed track on map (called from Python after analysis) ---
+function showTrackLine(jsonStr) {
+  // Remove old track
+  if (window._trackLine) map.removeLayer(window._trackLine);
+  var pts = JSON.parse(jsonStr);  // [[lat, lng], ...]
+  window._trackLine = L.polyline(pts, {
+    color: '#3b82f6',
+    weight: 4,
+    opacity: 0.9
+  }).addTo(map);
+}
+
+// --- Load optimised route from Python (batch replace, single notification) ---
+function setOptimisedRoute(jsonStr) {
+  var pts = JSON.parse(jsonStr);
+  // Clear existing markers and lines silently
+  waypoints.forEach(function(w) { if (w.marker) map.removeLayer(w.marker); });
+  waypoints = [];
+  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  if (window._trackLine) { map.removeLayer(window._trackLine); window._trackLine = null; }
+  // Bulk-add waypoints without per-add notifications
+  pts.forEach(function(p) { waypoints.push({ lat: p[0], lng: p[1], marker: null }); });
+  rebuildMarkers();
+  refreshRoute();
+  notifyPython();   // single notification after all waypoints are set
+  setStatus('Optimised route: ' + waypoints.length + ' waypoints (~' + routeLengthKm() + ' km). Click Analyse to evaluate.');
+}
+
+// --- Fit map view to current route / track ---
+function fitToRoute() {
+  if (window._trackLine) {
+    map.fitBounds(window._trackLine.getBounds(), { padding: [40, 40] });
+  } else if (waypoints.length > 0) {
+    var latlngs = waypoints.map(function(w) { return [w.lat, w.lng]; });
+    map.fitBounds(latlngs, { padding: [60, 60] });
+  }
+}
+
+map.on('mousemove', function(e) {
+  setStatus('Mode: ' + mode + ' | ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5) +
+            (waypoints.length > 1 ? '  |  Route: ~' + routeLengthKm() + ' km' : ''));
+});
+</script>
+</body>
+</html>
