@@ -126,6 +126,7 @@ export default function ResultsPanel({ result }) {
           <Stat label="Bridges"     value={`$${fmtM(co.subtotal_bridges)}M`}    unit="" />
           <Stat label="Tunnels"     value={`$${fmtM(co.subtotal_tunnels)}M`}    unit="" />
           <Stat label="Track"       value={`$${fmtM(co.subtotal_track)}M`}      unit="" />
+          <Stat label="Rail systems" value={`$${fmtM(co.subtotal_systems)}M`}  unit="" />
           <Stat label="Contingency" value={`$${fmtM(co.contingency_amount)}M`}  unit={`(${co.contingency_pct}%)`} />
           <Stat label="TOTAL"       value={`$${fmtM(co.total)}M`}               unit="" highlight />
           <Stat label="Per km"      value={`$${fmtM(co.total / result.route_length_km)}M`} unit="/km" />

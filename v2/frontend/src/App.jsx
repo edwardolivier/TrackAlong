@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { login, logout, isLoggedIn, getToken } from './lib/auth'
 import { analyseRoute, optimiseRoute } from './lib/api'
-import { DEFAULT_PARAMS, DEFAULT_CORRIDOR } from './lib/presets'
+import { DEFAULT_PARAMS, DEFAULT_CORRIDOR, DEFAULT_COST_BANDS } from './lib/presets'
 import MapView from './components/MapView'
 import ParamsPanel from './components/ParamsPanel'
 import ResultsPanel from './components/ResultsPanel'
@@ -74,6 +74,7 @@ export default function App() {
   const [waypoints, setWaypoints] = useState([])
   const [params, setParams] = useState(DEFAULT_PARAMS)
   const [corridor, setCorridor] = useState(DEFAULT_CORRIDOR)
+  const [costBands, setCostBands] = useState(DEFAULT_COST_BANDS)
   const [result, setResult] = useState(null)
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
@@ -105,7 +106,7 @@ export default function App() {
     setBusy(true)
     setStatus('Fetching elevation profile…')
     try {
-      const res = await analyseRoute({ waypoints, params })
+      const res = await analyseRoute({ waypoints, params, costBands })
       setResult(res)
       setStatus(`Done — ${res.route_length_km.toFixed(1)} km`)
       setShowResults(true)
@@ -176,8 +177,9 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         {showParams && (
           <div className="w-72 shrink-0 overflow-y-auto border-r border-navy-700">
-            <ParamsPanel params={params} corridor={corridor}
-              onParamsChange={setParams} onCorridorChange={setCorridor} />
+            <ParamsPanel params={params} corridor={corridor} costBands={costBands}
+              onParamsChange={setParams} onCorridorChange={setCorridor}
+              onCostBandsChange={setCostBands} />
           </div>
         )}
 

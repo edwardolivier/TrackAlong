@@ -74,6 +74,11 @@ class CostBands:
     track_formation:  float = 115.0   # Final formation trim & compact
     double_track_factor: float = 1.8  # Double ≈ single × factor (shared corridor)
 
+    # ── Rail systems (signalling, comms, ETCS, power) ───────────────────────
+    signalling_per_m: float = 250.0   # $/m — ETCS level 2 / ATP
+    comms_per_m: float = 80.0         # $/m — fibre, radio, lineside
+    power_per_m: float = 120.0        # $/m — traction power (electrification) or gensets
+
     # ── Contingency ──────────────────────────────────────────────────────────
     contingency_pct: float = 20.0  # %
 
@@ -111,6 +116,7 @@ class CostResult:
     lines_bridges: List[CostLine]
     lines_tunnels: List[CostLine]
     lines_track:   List[CostLine]
+    lines_systems: List[CostLine]
     contingency_pct: float
     route_length_km: float
     double_track: bool
@@ -127,11 +133,14 @@ class CostResult:
     def subtotal_tunnels(self):    return sum(l.subtotal for l in self.lines_tunnels)
     @property
     def subtotal_track(self):      return sum(l.subtotal for l in self.lines_track)
+    @property
+    def subtotal_systems(self):    return sum(l.subtotal for l in self.lines_systems)
 
     @property
     def subtotal_base(self):
         return (self.subtotal_earthworks + self.subtotal_bridges
-                + self.subtotal_tunnels + self.subtotal_track)
+                + self.subtotal_tunnels + self.subtotal_track
+                + self.subtotal_systems)
 
     @property
     def contingency_amount(self):
@@ -334,12 +343,25 @@ def estimate_costs(alignment, geology, cfg: CostBands,
         for lbl, r in comps
     ]
 
+    # ── Rail systems ──────────────────────────────────────────────────────────
+    sys_comps = [
+        ("Signalling (ETCS/ATP)",        cfg.signalling_per_m),
+        ("Communications (fibre/radio)",  cfg.comms_per_m),
+        ("Power / electrification",       cfg.power_per_m),
+    ]
+    lines_systems = [
+        CostLine(label=lbl, quantity=length_m, unit="m",
+                 rate=r, subtotal=length_m * r)
+        for lbl, r in sys_comps
+    ]
+
     return CostResult(
         lines_cut=lines_cut,
         lines_fill=lines_fill,
         lines_bridges=lines_bridges,
         lines_tunnels=lines_tunnels,
         lines_track=lines_track,
+        lines_systems=lines_systems,
         contingency_pct=cfg.contingency_pct,
         route_length_km=route_km,
         double_track=double_track,

@@ -35,6 +35,30 @@ export const DEFAULT_PARAMS = {
   ruling_grade_length_km: 10,
 }
 
+export const DEFAULT_COST_BANDS = {
+  // Cut $/m³ by geology
+  cut_A: 90.0, cut_B: 55.0, cut_C: 32.0, cut_D: 20.0, cut_unknown: 40.0,
+  // Fill $/m³ by geology
+  fill_A: 40.0, fill_B: 30.0, fill_C: 25.0, fill_D: 20.0, fill_unknown: 28.0,
+  // Cut depth multipliers
+  cut_band1_m: 5.0, cut_band2_m: 15.0, cut_mult_medium: 1.30, cut_mult_deep: 1.60,
+  // Fill height multipliers
+  fill_band1_m: 3.0, fill_band2_m: 8.0, fill_mult_medium: 1.20, fill_mult_high: 1.40,
+  // Bridge $/m by height
+  bridge_band1_m: 5.0, bridge_band2_m: 15.0,
+  bridge_rate_low: 30000.0, bridge_rate_medium: 65000.0, bridge_rate_high: 120000.0,
+  // Tunnel $/m by geology
+  tunnel_A: 45000.0, tunnel_B: 75000.0, tunnel_C: 100000.0, tunnel_D: 130000.0, tunnel_unknown: 90000.0,
+  // Track $/m (single track)
+  track_rail: 150.0, track_sleeper: 280.0, track_ballast: 140.0,
+  track_capping: 75.0, track_fastenings: 80.0, track_drainage: 60.0, track_formation: 115.0,
+  double_track_factor: 1.8,
+  // Rail systems $/m
+  signalling_per_m: 250.0, comms_per_m: 80.0, power_per_m: 120.0,
+  // Other
+  contingency_pct: 20.0, formation_width_m: 5.5,
+}
+
 export const DEFAULT_CORRIDOR = {
   corridor_km: 30, num_layers: 8, lateral_steps: 7,
   weight_length: 1.0, weight_grade: 5.0,

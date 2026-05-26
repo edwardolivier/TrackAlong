@@ -32,9 +32,10 @@ function Section({ title, children, defaultOpen = true }) {
   )
 }
 
-export default function ParamsPanel({ params, corridor, onParamsChange, onCorridorChange }) {
+export default function ParamsPanel({ params, corridor, costBands, onParamsChange, onCorridorChange, onCostBandsChange }) {
   function set(key, val) { onParamsChange({ ...params, [key]: val }) }
   function setC(key, val) { onCorridorChange({ ...corridor, [key]: val }) }
+  function setCost(key, val) { onCostBandsChange({ ...costBands, [key]: val }) }
 
   const presetName = Object.entries(RAIL_PRESETS).find(([, v]) =>
     v.max_grade_pct === params.max_grade_pct &&
@@ -85,6 +86,50 @@ export default function ParamsPanel({ params, corridor, onParamsChange, onCorrid
 
       <Section title="Analysis" defaultOpen={false}>
         <Field label="Ruling grade window" unit="km" value={params.ruling_grade_length_km} onChange={v => set('ruling_grade_length_km', v)} step={1} min={1} max={50} />
+      </Section>
+
+      <Section title="Construction Costs" defaultOpen={false}>
+        <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1">Cutting &amp; Filling ($/m³)</p>
+        <Field label="Cut — Hard rock"   unit="$/m³" value={costBands.cut_A}       onChange={v => setCost('cut_A', v)}       step={5}   min={0} />
+        <Field label="Cut — Med rock"    unit="$/m³" value={costBands.cut_B}       onChange={v => setCost('cut_B', v)}       step={5}   min={0} />
+        <Field label="Cut — Weak rock"   unit="$/m³" value={costBands.cut_C}       onChange={v => setCost('cut_C', v)}       step={5}   min={0} />
+        <Field label="Cut — Soft ground" unit="$/m³" value={costBands.cut_D}       onChange={v => setCost('cut_D', v)}       step={5}   min={0} />
+        <Field label="Cut — Unknown"     unit="$/m³" value={costBands.cut_unknown} onChange={v => setCost('cut_unknown', v)} step={5}   min={0} />
+        <Field label="Fill — Hard rock"  unit="$/m³" value={costBands.fill_A}      onChange={v => setCost('fill_A', v)}      step={5}   min={0} />
+        <Field label="Fill — Med rock"   unit="$/m³" value={costBands.fill_B}      onChange={v => setCost('fill_B', v)}      step={5}   min={0} />
+        <Field label="Fill — Weak rock"  unit="$/m³" value={costBands.fill_C}      onChange={v => setCost('fill_C', v)}      step={5}   min={0} />
+        <Field label="Fill — Soft gnd"   unit="$/m³" value={costBands.fill_D}      onChange={v => setCost('fill_D', v)}      step={5}   min={0} />
+        <Field label="Fill — Unknown"    unit="$/m³" value={costBands.fill_unknown} onChange={v => setCost('fill_unknown', v)} step={5}  min={0} />
+
+        <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-2">Tunnels ($/m)</p>
+        <Field label="Tunnel — Hard rock"  unit="$/m" value={costBands.tunnel_A}       onChange={v => setCost('tunnel_A', v)}       step={1000} min={0} />
+        <Field label="Tunnel — Med rock"   unit="$/m" value={costBands.tunnel_B}       onChange={v => setCost('tunnel_B', v)}       step={1000} min={0} />
+        <Field label="Tunnel — Weak rock"  unit="$/m" value={costBands.tunnel_C}       onChange={v => setCost('tunnel_C', v)}       step={1000} min={0} />
+        <Field label="Tunnel — Soft gnd"   unit="$/m" value={costBands.tunnel_D}       onChange={v => setCost('tunnel_D', v)}       step={1000} min={0} />
+        <Field label="Tunnel — Unknown"    unit="$/m" value={costBands.tunnel_unknown}  onChange={v => setCost('tunnel_unknown', v)} step={1000} min={0} />
+
+        <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-2">Bridges ($/m)</p>
+        <Field label="Bridge — Low (&lt;5m)"   unit="$/m" value={costBands.bridge_rate_low}    onChange={v => setCost('bridge_rate_low', v)}    step={1000} min={0} />
+        <Field label="Bridge — Med (5–15m)"    unit="$/m" value={costBands.bridge_rate_medium} onChange={v => setCost('bridge_rate_medium', v)} step={1000} min={0} />
+        <Field label="Bridge — High (&gt;15m)" unit="$/m" value={costBands.bridge_rate_high}   onChange={v => setCost('bridge_rate_high', v)}   step={1000} min={0} />
+
+        <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-2">Track ($/m, single track)</p>
+        <Field label="Rail 60 kg/m"        unit="$/m" value={costBands.track_rail}      onChange={v => setCost('track_rail', v)}      step={10} min={0} />
+        <Field label="Concrete sleepers"   unit="$/m" value={costBands.track_sleeper}   onChange={v => setCost('track_sleeper', v)}   step={10} min={0} />
+        <Field label="Ballast"             unit="$/m" value={costBands.track_ballast}   onChange={v => setCost('track_ballast', v)}   step={10} min={0} />
+        <Field label="Capping layer"       unit="$/m" value={costBands.track_capping}   onChange={v => setCost('track_capping', v)}   step={5}  min={0} />
+        <Field label="Fastenings"          unit="$/m" value={costBands.track_fastenings} onChange={v => setCost('track_fastenings', v)} step={5} min={0} />
+        <Field label="Drainage"            unit="$/m" value={costBands.track_drainage}  onChange={v => setCost('track_drainage', v)}  step={5}  min={0} />
+        <Field label="Formation prep"      unit="$/m" value={costBands.track_formation} onChange={v => setCost('track_formation', v)} step={5}  min={0} />
+        <Field label="Double track factor" unit="×"   value={costBands.double_track_factor} onChange={v => setCost('double_track_factor', v)} step={0.1} min={1} />
+
+        <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-2">Rail Systems ($/m)</p>
+        <Field label="Signalling (ETCS/ATP)" unit="$/m" value={costBands.signalling_per_m} onChange={v => setCost('signalling_per_m', v)} step={10} min={0} />
+        <Field label="Communications"        unit="$/m" value={costBands.comms_per_m}      onChange={v => setCost('comms_per_m', v)}      step={10} min={0} />
+        <Field label="Power / electrification" unit="$/m" value={costBands.power_per_m}    onChange={v => setCost('power_per_m', v)}      step={10} min={0} />
+
+        <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-2">Other</p>
+        <Field label="Contingency" unit="%" value={costBands.contingency_pct} onChange={v => setCost('contingency_pct', v)} step={1} min={0} max={50} />
       </Section>
 
       <Section title="Route Optimiser" defaultOpen={false}>

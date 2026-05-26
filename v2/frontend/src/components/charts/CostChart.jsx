@@ -12,7 +12,7 @@ const DARK = {
 
 const COLORS = {
   Cut: '#f87171', Fill: '#4ade80', Bridges: '#a78bfa',
-  Tunnels: '#94a3b8', Track: '#38bdf8', Contingency: '#f59e0b',
+  Tunnels: '#94a3b8', Track: '#38bdf8', 'Rail systems': '#34d399', Contingency: '#f59e0b',
 }
 
 export default function CostChart({ result }) {
@@ -20,12 +20,13 @@ export default function CostChart({ result }) {
   const co = result.costs
 
   const categories = [
-    { label: 'Cut',         value: co.subtotal_cut },
-    { label: 'Fill',        value: co.subtotal_fill },
-    { label: 'Bridges',     value: co.subtotal_bridges },
-    { label: 'Tunnels',     value: co.subtotal_tunnels },
-    { label: 'Track',       value: co.subtotal_track },
-    { label: 'Contingency', value: co.contingency_amount },
+    { label: 'Cut',          value: co.subtotal_cut },
+    { label: 'Fill',         value: co.subtotal_fill },
+    { label: 'Bridges',      value: co.subtotal_bridges },
+    { label: 'Tunnels',      value: co.subtotal_tunnels },
+    { label: 'Track',        value: co.subtotal_track },
+    { label: 'Rail systems', value: co.subtotal_systems },
+    { label: 'Contingency',  value: co.contingency_amount },
   ].filter(c => c.value > 0)
 
   const toM = v => v / 1e6

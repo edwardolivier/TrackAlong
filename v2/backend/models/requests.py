@@ -60,6 +60,9 @@ class CostBandsModel(BaseModel):
     track_drainage: float = 60.0
     track_formation: float = 115.0
     double_track_factor: float = 1.8
+    signalling_per_m: float = 250.0
+    comms_per_m: float = 80.0
+    power_per_m: float = 120.0
     contingency_pct: float = 20.0
     formation_width_m: float = 5.5
 
