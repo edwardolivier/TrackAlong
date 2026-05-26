@@ -6,7 +6,6 @@ import MapView from './components/MapView'
 import ParamsPanel from './components/ParamsPanel'
 import ResultsPanel from './components/ResultsPanel'
 import ProfileChart from './components/charts/ProfileChart'
-import HorizontalChart from './components/charts/HorizontalChart'
 import CostChart from './components/charts/CostChart'
 
 function LoginPage({ onLogin }) {
@@ -128,7 +127,7 @@ export default function App() {
     setAuthed(false)
   }
 
-  const TABS = ['profile', 'horizontal', 'cost']
+  const TABS = ['profile', 'cost']
 
   return (
     <div className="flex flex-col h-screen bg-navy-900 overflow-hidden">
@@ -194,14 +193,13 @@ export default function App() {
                   <button key={t} onClick={() => setActiveTab(t)}
                     className={`px-4 py-1.5 text-xs capitalize border-r border-navy-700
                       ${activeTab === t ? 'bg-navy-900 text-slate-200' : 'text-slate-400 hover:bg-navy-700'}`}>
-                    {t === 'profile' ? 'Vertical Profile' : t === 'horizontal' ? 'Horizontal Alignment' : 'Cost Estimate'}
+                    {t === 'profile' ? 'Vertical Profile' : 'Cost Estimate'}
                   </button>
                 ))}
               </div>
               <div className="flex-1 min-h-0">
-                {activeTab === 'profile'    && <ProfileChart result={result} />}
-                {activeTab === 'horizontal' && <HorizontalChart result={result} params={params} />}
-                {activeTab === 'cost'       && <CostChart result={result} />}
+                {activeTab === 'profile' && <ProfileChart result={result} />}
+                {activeTab === 'cost'    && <CostChart result={result} />}
               </div>
             </div>
           )}
