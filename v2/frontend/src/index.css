@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Leaflet */
+@import 'leaflet/dist/leaflet.css';
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Leaflet dark tile overlay */
+.leaflet-tile {
+  filter: brightness(0.85) saturate(0.9);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+/* Range input */
+input[type=range] { accent-color: #0ea5e9; }

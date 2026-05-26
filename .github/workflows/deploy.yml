@@ -51,6 +51,8 @@ jobs:
       - name: Build frontend
         working-directory: v2/frontend
         run: npm run build
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         continue-on-error: true   # API still deploys even if frontend build missing
 
       # ── Build & push Docker image ────────────────────────────────────────────
