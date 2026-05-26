@@ -2,7 +2,8 @@ name: Deploy to Cloud Run
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "v2/**"
       - "v1/src/core/**"
@@ -17,25 +18,22 @@ env:
 
 jobs:
   deploy:
-    name: Build & Deploy
+    name: Build and Deploy
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # required for Workload Identity Federation
+      id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Google Auth (Workload Identity Federation — recommended) ────────────
-      # See SETUP.md for how to configure the WIF provider and service account.
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      # ── Build React frontend ─────────────────────────────────────────────────
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -44,7 +42,6 @@ jobs:
       - name: Install frontend deps
         working-directory: v2/frontend
         run: npm ci
-        # Skipped gracefully if v2/frontend doesn't exist yet
         continue-on-error: true
 
       - name: Build frontend
@@ -52,7 +49,6 @@ jobs:
         run: npm run build
         continue-on-error: true
 
-      # ── Build & push Docker image ────────────────────────────────────────────
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
@@ -69,7 +65,6 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/trackalong/${{ env.SERVICE }}:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/trackalong/${{ env.SERVICE }}:latest
 
-      # ── Deploy to Cloud Run ──────────────────────────────────────────────────
       - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
@@ -82,5 +77,5 @@ jobs:
             APP_PASSWORD=${{ secrets.APP_PASSWORD }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
 
-      - name: Print service URL
+      - name: Show service URL
         run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
