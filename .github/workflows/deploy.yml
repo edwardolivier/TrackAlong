@@ -77,5 +77,13 @@ jobs:
             APP_PASSWORD=${{ secrets.APP_PASSWORD }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
 
+      - name: Allow public access
+        run: |
+          gcloud run services add-iam-policy-binding trackalong-v2 \
+            --region=australia-southeast1 \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --project=${{ env.PROJECT_ID }}
+
       - name: Show service URL
         run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
