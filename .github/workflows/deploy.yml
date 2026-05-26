@@ -7,7 +7,7 @@ on:
       - "v2/**"
       - "v1/src/core/**"
       - ".github/workflows/deploy.yml"
-  workflow_dispatch:  # allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -50,9 +50,7 @@ jobs:
       - name: Build frontend
         working-directory: v2/frontend
         run: npm run build
-        env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-        continue-on-error: true   # API still deploys even if frontend build missing
+        continue-on-error: true
 
       # ── Build & push Docker image ────────────────────────────────────────────
       - name: Configure Docker for Artifact Registry
