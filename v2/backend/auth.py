@@ -1,31 +1,33 @@
 from __future__ import annotations
 import os
-from fastapi import Request, HTTPException, Depends
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
+import time
+import jwt
+from fastapi import Request, HTTPException
 
-_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-_ALLOWED_EMAILS = set(filter(None, os.getenv("ALLOWED_EMAILS", "").split(",")))
-_DEV_MODE = os.getenv("DEV_MODE", "").lower() == "true"
+_SECRET = os.getenv("SECRET_KEY", "trackalong-dev-secret")
+_USERNAME = os.getenv("APP_USERNAME", "admin")
+_PASSWORD = os.getenv("APP_PASSWORD", "adminadmin")
+_EXPIRE_HOURS = 8
 
 
-async def verify_google_token(request: Request) -> dict:
-    if _DEV_MODE:
-        return {"email": "dev@localhost", "sub": "dev"}
+def create_token(username: str) -> str:
+    payload = {"sub": username, "exp": time.time() + _EXPIRE_HOURS * 3600}
+    return jwt.encode(payload, _SECRET, algorithm="HS256")
 
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing Bearer token")
 
-    token = auth_header[7:]
+def login(username: str, password: str) -> str:
+    if username != _USERNAME or password != _PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    return create_token(username)
+
+
+async def verify_token(request: Request) -> dict:
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        info = id_token.verify_oauth2_token(
-            token, google_requests.Request(), _CLIENT_ID
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
-
-    if _ALLOWED_EMAILS and info.get("email") not in _ALLOWED_EMAILS:
-        raise HTTPException(status_code=403, detail="Email not authorised")
-
-    return info
+        return jwt.decode(auth[7:], _SECRET, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired — please log in again")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")

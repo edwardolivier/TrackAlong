@@ -1,61 +1,42 @@
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
-
-let _token = null
-let _onSignIn = null
-let _onSignOut = null
-
-export function initAuth({ onSignIn, onSignOut }) {
-  _onSignIn = onSignIn
-  _onSignOut = onSignOut
-
-  if (DEV_MODE) {
-    _token = 'dev-token'
-    onSignIn({ email: 'dev@localhost', name: 'Dev User', picture: null })
-    return
-  }
-
-  if (!CLIENT_ID) {
-    console.warn('VITE_GOOGLE_CLIENT_ID not set — auth disabled')
-    return
-  }
-
-  window.google?.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: (response) => {
-      _token = response.credential
-      const payload = _parseJwt(response.credential)
-      onSignIn({ email: payload.email, name: payload.name, picture: payload.picture })
-    },
-    auto_select: true,
-  })
-}
-
-export function renderSignInButton(element) {
-  if (DEV_MODE || !CLIENT_ID) return
-  window.google?.accounts.id.renderButton(element, {
-    theme: 'filled_black',
-    size: 'medium',
-    shape: 'rectangular',
-    text: 'signin_with',
-  })
-  window.google?.accounts.id.prompt()
-}
-
-export function signOut() {
-  _token = null
-  window.google?.accounts.id.disableAutoSelect()
-  _onSignOut?.()
-}
+const TOKEN_KEY = 'trackalong_token'
 
 export function getToken() {
-  return _token
+  return localStorage.getItem(TOKEN_KEY)
 }
 
-function _parseJwt(token) {
+export function saveToken(token) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+export function isLoggedIn() {
+  const token = getToken()
+  if (!token) return false
   try {
-    return JSON.parse(atob(token.split('.')[1]))
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp > Date.now() / 1000
   } catch {
-    return {}
+    return false
   }
+}
+
+export async function login(username, password) {
+  const res = await fetch('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'Login failed')
+  }
+  const { token } = await res.json()
+  saveToken(token)
+}
+
+export function logout() {
+  clearToken()
 }

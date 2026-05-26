@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { initAuth, renderSignInButton, signOut, getToken } from './lib/auth'
+import { useState, useEffect } from 'react'
+import { login, logout, isLoggedIn, getToken } from './lib/auth'
 import { analyseRoute, optimiseRoute } from './lib/api'
 import { DEFAULT_PARAMS, DEFAULT_CORRIDOR } from './lib/presets'
 import MapView from './components/MapView'
@@ -9,8 +9,69 @@ import ProfileChart from './components/charts/ProfileChart'
 import HorizontalChart from './components/charts/HorizontalChart'
 import CostChart from './components/charts/CostChart'
 
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await login(username, password)
+      onLogin()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-navy-900">
+      <div className="w-80 space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-sky-400">TrackAlong</h1>
+          <p className="text-slate-500 text-sm mt-1">Railway alignment analyser</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-navy-800 rounded-lg p-6 space-y-4 border border-navy-700">
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Username</label>
+            <input
+              type="text" value={username} onChange={e => setUsername(e.target.value)}
+              autoFocus required
+              className="w-full bg-navy-900 border border-navy-700 text-slate-200 rounded
+                         px-3 py-2 text-sm focus:outline-none focus:border-sky-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Password</label>
+            <input
+              type="password" value={password} onChange={e => setPassword(e.target.value)}
+              required
+              className="w-full bg-navy-900 border border-navy-700 text-slate-200 rounded
+                         px-3 py-2 text-sm focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+
+          <button type="submit" disabled={busy}
+            className="w-full bg-sky-500 hover:bg-sky-400 disabled:opacity-50
+                       text-white font-medium rounded py-2 text-sm transition-colors">
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
-  const [user, setUser] = useState(null)
+  const [authed, setAuthed] = useState(isLoggedIn())
   const [waypoints, setWaypoints] = useState([])
   const [params, setParams] = useState(DEFAULT_PARAMS)
   const [corridor, setCorridor] = useState(DEFAULT_CORRIDOR)
@@ -20,20 +81,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('profile')
   const [showParams, setShowParams] = useState(true)
   const [showResults, setShowResults] = useState(true)
-  const signInRef = useRef(null)
 
-  useEffect(() => {
-    initAuth({
-      onSignIn: (u) => setUser(u),
-      onSignOut: () => setUser(null),
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!user && signInRef.current) {
-      renderSignInButton(signInRef.current)
-    }
-  }, [user])
+  if (!authed) {
+    return <LoginPage onLogin={() => setAuthed(true)} />
+  }
 
   async function handleOptimise() {
     if (waypoints.length < 2) return
@@ -72,16 +123,9 @@ export default function App() {
     setStatus('')
   }
 
-  if (!user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-navy-900">
-        <div className="text-center space-y-6">
-          <h1 className="text-3xl font-bold text-sky-400">TrackAlong</h1>
-          <p className="text-slate-400">Railway alignment analyser</p>
-          <div ref={signInRef} />
-        </div>
-      </div>
-    )
+  function handleLogout() {
+    logout()
+    setAuthed(false)
   }
 
   const TABS = ['profile', 'horizontal', 'cost']
@@ -118,9 +162,7 @@ export default function App() {
         </button>
 
         <div className="w-px h-5 bg-navy-700" />
-        <img src={user.picture} alt="" className="w-6 h-6 rounded-full" />
-        <span className="text-xs text-slate-400">{user.email}</span>
-        <button onClick={signOut} className="text-xs text-slate-500 hover:text-slate-300">Sign out</button>
+        <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-slate-300">Sign out</button>
       </header>
 
       {/* Status bar */}
@@ -133,7 +175,6 @@ export default function App() {
 
       {/* Main layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Params panel */}
         {showParams && (
           <div className="w-72 shrink-0 overflow-y-auto border-r border-navy-700">
             <ParamsPanel params={params} corridor={corridor}
@@ -141,26 +182,19 @@ export default function App() {
           </div>
         )}
 
-        {/* Centre: map + charts */}
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 min-h-0">
-            <MapView waypoints={waypoints} onWaypointsChange={setWaypoints}
-              result={result} />
+            <MapView waypoints={waypoints} onWaypointsChange={setWaypoints} result={result} />
           </div>
 
           {result && (
             <div className="h-64 shrink-0 border-t border-navy-700 flex flex-col">
-              {/* Chart tabs */}
               <div className="flex border-b border-navy-700 bg-navy-800 shrink-0">
                 {TABS.map(t => (
                   <button key={t} onClick={() => setActiveTab(t)}
                     className={`px-4 py-1.5 text-xs capitalize border-r border-navy-700
-                      ${activeTab === t
-                        ? 'bg-navy-900 text-slate-200'
-                        : 'text-slate-400 hover:bg-navy-700'}`}>
-                    {t === 'profile' ? 'Vertical Profile'
-                      : t === 'horizontal' ? 'Horizontal Alignment'
-                      : 'Cost Estimate'}
+                      ${activeTab === t ? 'bg-navy-900 text-slate-200' : 'text-slate-400 hover:bg-navy-700'}`}>
+                    {t === 'profile' ? 'Vertical Profile' : t === 'horizontal' ? 'Horizontal Alignment' : 'Cost Estimate'}
                   </button>
                 ))}
               </div>
@@ -173,7 +207,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Results panel */}
         {showResults && result && (
           <div className="w-80 shrink-0 overflow-y-auto border-l border-navy-700">
             <ResultsPanel result={result} />
