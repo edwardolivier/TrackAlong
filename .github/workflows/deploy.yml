@@ -7,6 +7,7 @@ on:
       - "v2/**"
       - "v1/src/core/**"
       - ".github/workflows/deploy.yml"
+  workflow_dispatch:  # allows manual trigger from GitHub Actions tab
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -74,6 +75,7 @@ jobs:
 
       # ── Deploy to Cloud Run ──────────────────────────────────────────────────
       - name: Deploy to Cloud Run
+        id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE }}
