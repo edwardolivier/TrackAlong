@@ -121,7 +121,8 @@ def serialise_geology(geo) -> dict | None:
         "risk_notes": geo.risk_notes,
         "segments": [
             {"start_ch": _safe(s.start_ch), "end_ch": _safe(s.end_ch),
-             "geo_class": s.geo_class, "description": getattr(s, "description", "")}
+             "eng_class": s.eng_class, "eng_label": s.eng_label,
+             "unit_name": s.unit_name, "lithology": s.lithology}
             for s in (geo.segments or [])
         ],
     }
