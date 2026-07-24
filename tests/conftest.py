@@ -8,6 +8,7 @@ so `import main` succeeds without a real secret.
 import os
 import pathlib
 import sys
+import tempfile
 
 import numpy as np
 import pytest
@@ -24,6 +25,9 @@ if "APP_PASSWORD_HASH" not in os.environ:
     from argon2 import PasswordHasher
 
     os.environ["APP_PASSWORD_HASH"] = PasswordHasher().hash("testpass")
+
+# Saved-routes storage → an isolated temp dir, so tests never touch real data.
+os.environ.setdefault("STORAGE_DIR", tempfile.mkdtemp(prefix="trackalong-test-"))
 
 # Known-good credentials the API tests log in with.
 TEST_USERNAME = os.environ["APP_USERNAME"]

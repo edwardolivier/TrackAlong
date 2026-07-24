@@ -9,3 +9,4 @@ PyJWT==2.9.0
 argon2-cffi==23.1.0
 numpy==2.2.0
 aiofiles==24.1.0
+google-cloud-storage==2.19.0

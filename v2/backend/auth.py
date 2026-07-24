@@ -21,7 +21,7 @@ import time
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, Depends
 
 
 def _require(name: str) -> str:
@@ -69,3 +69,11 @@ async def verify_token(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Session expired — please log in again")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+async def current_user(payload: dict = Depends(verify_token)) -> str:
+    """FastAPI dependency: the authenticated username (JWT subject)."""
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return sub

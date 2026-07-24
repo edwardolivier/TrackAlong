@@ -74,6 +74,7 @@ jobs:
             APP_USERNAME=${{ secrets.APP_USERNAME }}
             APP_PASSWORD_HASH=${{ secrets.APP_PASSWORD_HASH }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
+            GCS_BUCKET=${{ secrets.GCS_BUCKET }}
 
       - name: Allow public access
         run: |

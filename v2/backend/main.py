@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from auth import verify_token, login
 from api.analyse import router as analyse_router
 from api.optimise_route import router as optimise_router
+from api.routes_store import router as routes_router
 
 app = FastAPI(title="TrackAlong API", version="2.0.0")
 
@@ -50,6 +51,9 @@ def auth_login(req: LoginRequest):
 _auth = [Depends(verify_token)]
 app.include_router(analyse_router, prefix="/api", dependencies=_auth)
 app.include_router(optimise_router, prefix="/api", dependencies=_auth)
+# routes_store handlers authenticate per-request via Depends(current_user) so they
+# can scope storage to the user, so no blanket dependency here.
+app.include_router(routes_router, prefix="/api")
 
 # Serve React build
 _static = pathlib.Path(__file__).parent / "static"
