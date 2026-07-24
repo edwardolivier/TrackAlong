@@ -5,12 +5,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies first for layer caching
+# Core analysis package (shared from v1 — single source of truth for analysis logic
+# AND its dependencies). Installing it as a package means `import core` resolves the
+# same way here as it does in local dev and CI.
+COPY pyproject.toml ./pyproject.toml
+COPY v1/src/core ./v1/src/core
+RUN pip install --no-cache-dir .
+
+# Web-layer dependencies (FastAPI, auth, etc.)
 COPY v2/backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Core analysis library (shared from v1 — single source of truth)
-COPY v1/src/core ./core
 
 # Backend application
 COPY v2/backend/main.py ./main.py

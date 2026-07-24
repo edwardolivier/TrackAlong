@@ -1,13 +1,45 @@
+"""
+Authentication for the single-operator deployment.
+
+One account, credentials supplied entirely via environment (no hardcoded defaults):
+  SECRET_KEY         — HMAC signing key for the session JWT   (required)
+  APP_USERNAME       — the single login name                  (default: "admin")
+  APP_PASSWORD_HASH  — argon2 hash of the password            (required)
+  TOKEN_EXPIRE_HOURS — session lifetime in hours              (default: 8)
+
+The app refuses to start if SECRET_KEY or APP_PASSWORD_HASH is unset, so it can
+never fall back to a guessable password. Generate the hash with:
+    python scripts/hash_password.py
+
+Multi-user accounts (registration, a user table, roles) are deferred to the public
+phase; for now this gates the tool to its owner.
+"""
 from __future__ import annotations
 import os
 import time
+
 import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from fastapi import Request, HTTPException
 
-_SECRET = os.getenv("SECRET_KEY", "trackalong-dev-secret")
+
+def _require(name: str) -> str:
+    val = os.getenv(name)
+    if not val:
+        raise RuntimeError(
+            f"Environment variable {name!r} is required but not set. "
+            "Refusing to start without it — see auth.py for the required config."
+        )
+    return val
+
+
+_SECRET = _require("SECRET_KEY")
 _USERNAME = os.getenv("APP_USERNAME", "admin")
-_PASSWORD = os.getenv("APP_PASSWORD", "adminadmin")
-_EXPIRE_HOURS = 8
+_PASSWORD_HASH = _require("APP_PASSWORD_HASH")
+_EXPIRE_HOURS = int(os.getenv("TOKEN_EXPIRE_HOURS", "8"))
+
+_ph = PasswordHasher()
 
 
 def create_token(username: str) -> str:
@@ -16,7 +48,13 @@ def create_token(username: str) -> str:
 
 
 def login(username: str, password: str) -> str:
-    if username != _USERNAME or password != _PASSWORD:
+    # Constant-ish response: verify the hash even on username mismatch is overkill
+    # for a single account, but we still avoid leaking which field was wrong.
+    if username != _USERNAME:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    try:
+        _ph.verify(_PASSWORD_HASH, password)
+    except (VerifyMismatchError, InvalidHashError):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return create_token(username)
 

@@ -42,12 +42,10 @@ jobs:
       - name: Install frontend deps
         working-directory: v2/frontend
         run: npm ci
-        continue-on-error: true
 
       - name: Build frontend
         working-directory: v2/frontend
         run: npm run build
-        continue-on-error: true
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
@@ -74,7 +72,7 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/trackalong/${{ env.SERVICE }}:${{ github.sha }}
           env_vars: |
             APP_USERNAME=${{ secrets.APP_USERNAME }}
-            APP_PASSWORD=${{ secrets.APP_PASSWORD }}
+            APP_PASSWORD_HASH=${{ secrets.APP_PASSWORD_HASH }}
             SECRET_KEY=${{ secrets.SECRET_KEY }}
 
       - name: Allow public access

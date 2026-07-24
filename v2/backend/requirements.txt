@@ -1,8 +1,11 @@
+# Web-layer dependencies only.
+# The scientific/analysis stack (scipy, requests, shapely, geopandas) is declared by
+# the trackalong-core package in ../../pyproject.toml and installed via `pip install .`
+# in the Dockerfile. numpy is listed here too because models/responses.py imports it directly.
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 pydantic==2.10.3
-numpy==2.2.0
-scipy==1.14.1
 PyJWT==2.9.0
-requests==2.32.3
+argon2-cffi==23.1.0
+numpy==2.2.0
 aiofiles==24.1.0

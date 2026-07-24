@@ -1,0 +1,36 @@
+# TrackAlong core analysis library.
+#
+# `v1/src/core` is the single source of truth for all analysis logic and is shared
+# by the v1 desktop app and the v2 web backend. Packaging it here makes `import core`
+# resolve everywhere — local dev, CI, and the v2 Docker image — instead of only
+# working because the Dockerfile copied the directory into place.
+#
+#   Local dev / CI:  pip install -e .
+#   Docker (v2):     pip install .   (see v2/backend/Dockerfile)
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trackalong-core"
+version = "1.0.0"
+description = "TrackAlong railway alignment analysis core (shared by v1 desktop and v2 web)"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "requests>=2.31",
+    "shapely>=2.0",
+    "geopandas>=0.14",
+]
+
+[tool.setuptools]
+package-dir = { "" = "v1/src" }
+
+[tool.setuptools.packages.find]
+where = ["v1/src"]
+include = ["core*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
