@@ -63,3 +63,38 @@ export const DEFAULT_CORRIDOR = {
   corridor_km: 30, num_layers: 8, lateral_steps: 7,
   weight_length: 1.0, weight_grade: 5.0,
 }
+
+// Land acquisition — 8 cost categories (AUD/m²), mirrors core land_zoning defaults.
+export const LAND_CATEGORIES = [
+  'Crown / Conservation', 'Rural / Agricultural',
+  'Residential (low density)', 'Residential (med/high density)',
+  'Commercial', 'Industrial', 'Infrastructure', 'Other',
+]
+
+export const DEFAULT_LAND = {
+  include: true,
+  corridor_m: 30,
+  category_costs: {
+    'Crown / Conservation': 0.0,
+    'Rural / Agricultural': 3.0,
+    'Residential (low density)': 200.0,
+    'Residential (med/high density)': 400.0,
+    'Commercial': 350.0,
+    'Industrial': 180.0,
+    'Infrastructure': 50.0,
+    'Other': 30.0,
+  },
+}
+
+// Route optimiser presets (mirror core route_optimizer INTENSITY / OBJECTIVE tables).
+export const OPTIMISER_INTENSITY = {
+  Low:    { num_layers: 5,  lateral_steps: 5 },
+  Medium: { num_layers: 8,  lateral_steps: 7 },
+  High:   { num_layers: 12, lateral_steps: 9 },
+}
+
+export const OPTIMISER_OBJECTIVE = {
+  'Shortest path':      { weight_length: 1.0, weight_grade: 0.3 },
+  'Balanced':           { weight_length: 1.0, weight_grade: 5.0 },
+  'Minimise earthwork': { weight_length: 0.4, weight_grade: 15.0 },
+}

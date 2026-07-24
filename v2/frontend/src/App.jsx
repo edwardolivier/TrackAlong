@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { login, logout, isLoggedIn, getToken } from './lib/auth'
 import { analyseRoute, optimiseRoute } from './lib/api'
-import { DEFAULT_PARAMS, DEFAULT_CORRIDOR, DEFAULT_COST_BANDS } from './lib/presets'
+import { DEFAULT_PARAMS, DEFAULT_CORRIDOR, DEFAULT_COST_BANDS, DEFAULT_LAND } from './lib/presets'
 import MapView from './components/MapView'
 import ParamsPanel from './components/ParamsPanel'
 import ResultsPanel from './components/ResultsPanel'
 import ProfileChart from './components/charts/ProfileChart'
+import HorizontalChart from './components/charts/HorizontalChart'
+import SuperelevationChart from './components/charts/SuperelevationChart'
 import CostChart from './components/charts/CostChart'
 
 function LoginPage({ onLogin }) {
@@ -75,6 +77,8 @@ export default function App() {
   const [params, setParams] = useState(DEFAULT_PARAMS)
   const [corridor, setCorridor] = useState(DEFAULT_CORRIDOR)
   const [costBands, setCostBands] = useState(DEFAULT_COST_BANDS)
+  const [land, setLand] = useState(DEFAULT_LAND)
+  const [doubleTrack, setDoubleTrack] = useState(false)
   const [result, setResult] = useState(null)
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
@@ -106,7 +110,7 @@ export default function App() {
     setBusy(true)
     setStatus('Fetching elevation profile…')
     try {
-      const res = await analyseRoute({ waypoints, params, costBands })
+      const res = await analyseRoute({ waypoints, params, costBands, doubleTrack, land })
       setResult(res)
       setStatus(`Done — ${res.route_length_km.toFixed(1)} km`)
       setShowResults(true)
@@ -128,7 +132,12 @@ export default function App() {
     setAuthed(false)
   }
 
-  const TABS = ['profile', 'cost']
+  const TABS = [
+    { key: 'profile', label: 'Vertical Profile' },
+    { key: 'horizontal', label: 'Horizontal' },
+    { key: 'superelevation', label: 'Superelevation' },
+    { key: 'cost', label: 'Cost Estimate' },
+  ]
 
   return (
     <div className="flex flex-col h-screen bg-navy-900 overflow-hidden">
@@ -178,8 +187,10 @@ export default function App() {
         {showParams && (
           <div className="w-72 shrink-0 overflow-y-auto border-r border-navy-700">
             <ParamsPanel params={params} corridor={corridor} costBands={costBands}
+              land={land} doubleTrack={doubleTrack}
               onParamsChange={setParams} onCorridorChange={setCorridor}
-              onCostBandsChange={setCostBands} />
+              onCostBandsChange={setCostBands} onLandChange={setLand}
+              onDoubleTrackChange={setDoubleTrack} />
           </div>
         )}
 
@@ -192,16 +203,18 @@ export default function App() {
             <div className="h-64 shrink-0 border-t border-navy-700 flex flex-col">
               <div className="flex border-b border-navy-700 bg-navy-800 shrink-0">
                 {TABS.map(t => (
-                  <button key={t} onClick={() => setActiveTab(t)}
-                    className={`px-4 py-1.5 text-xs capitalize border-r border-navy-700
-                      ${activeTab === t ? 'bg-navy-900 text-slate-200' : 'text-slate-400 hover:bg-navy-700'}`}>
-                    {t === 'profile' ? 'Vertical Profile' : 'Cost Estimate'}
+                  <button key={t.key} onClick={() => setActiveTab(t.key)}
+                    className={`px-4 py-1.5 text-xs border-r border-navy-700
+                      ${activeTab === t.key ? 'bg-navy-900 text-slate-200' : 'text-slate-400 hover:bg-navy-700'}`}>
+                    {t.label}
                   </button>
                 ))}
               </div>
               <div className="flex-1 min-h-0">
-                {activeTab === 'profile' && <ProfileChart result={result} />}
-                {activeTab === 'cost'    && <CostChart result={result} />}
+                {activeTab === 'profile'        && <ProfileChart result={result} />}
+                {activeTab === 'horizontal'     && <HorizontalChart result={result} params={params} />}
+                {activeTab === 'superelevation' && <SuperelevationChart result={result} params={params} />}
+                {activeTab === 'cost'           && <CostChart result={result} />}
               </div>
             </div>
           )}

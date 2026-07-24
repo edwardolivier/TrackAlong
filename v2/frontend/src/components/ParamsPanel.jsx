@@ -1,4 +1,8 @@
-import { RAIL_PRESETS, DEFAULT_CORRIDOR } from '../lib/presets'
+import {
+  RAIL_PRESETS, LAND_CATEGORIES, OPTIMISER_INTENSITY, OPTIMISER_OBJECTIVE,
+} from '../lib/presets'
+
+const MIN_ELEV_DISABLED = -1e9
 
 function Field({ label, unit, value, onChange, min, max, step = 0.1 }) {
   return (
@@ -11,6 +15,29 @@ function Field({ label, unit, value, onChange, min, max, step = 0.1 }) {
                      text-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-sky-500" />
         {unit && <span className="text-xs text-slate-500 w-8">{unit}</span>}
       </div>
+    </div>
+  )
+}
+
+function Toggle({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center justify-between py-0.5 cursor-pointer">
+      <span className="text-xs text-slate-400 flex-1">{label}</span>
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)}
+        className="accent-sky-500 w-3.5 h-3.5" />
+    </label>
+  )
+}
+
+function Select({ label, value, options, onChange }) {
+  return (
+    <div className="flex items-center justify-between py-0.5">
+      <label className="text-xs text-slate-400 flex-1">{label}</label>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="w-28 text-xs bg-navy-700 border border-navy-600 text-slate-200
+                   rounded px-1 py-0.5 focus:outline-none focus:border-sky-500">
+        {options.map(o => <option key={o}>{o}</option>)}
+      </select>
     </div>
   )
 }
@@ -32,10 +59,17 @@ function Section({ title, children, defaultOpen = true }) {
   )
 }
 
-export default function ParamsPanel({ params, corridor, costBands, onParamsChange, onCorridorChange, onCostBandsChange }) {
+export default function ParamsPanel({
+  params, corridor, costBands, land, doubleTrack,
+  onParamsChange, onCorridorChange, onCostBandsChange, onLandChange, onDoubleTrackChange,
+}) {
   function set(key, val) { onParamsChange({ ...params, [key]: val }) }
   function setC(key, val) { onCorridorChange({ ...corridor, [key]: val }) }
   function setCost(key, val) { onCostBandsChange({ ...costBands, [key]: val }) }
+  function setLand(key, val) { onLandChange({ ...land, [key]: val }) }
+  function setLandCost(cat, val) {
+    onLandChange({ ...land, category_costs: { ...land.category_costs, [cat]: val } })
+  }
 
   const presetName = Object.entries(RAIL_PRESETS).find(([, v]) =>
     v.max_grade_pct === params.max_grade_pct &&
@@ -47,6 +81,16 @@ export default function ParamsPanel({ params, corridor, costBands, onParamsChang
     if (name === 'Custom') return
     onParamsChange({ ...params, ...RAIL_PRESETS[name] })
   }
+
+  const minElevEnabled = params.min_track_elev_m > -1e8
+
+  // Reflect the current corridor weights/steps back to the named preset (or "Custom").
+  const intensityName = Object.entries(OPTIMISER_INTENSITY).find(([, v]) =>
+    v.num_layers === corridor.num_layers && v.lateral_steps === corridor.lateral_steps
+  )?.[0] ?? 'Custom'
+  const objectiveName = Object.entries(OPTIMISER_OBJECTIVE).find(([, v]) =>
+    v.weight_length === corridor.weight_length && v.weight_grade === corridor.weight_grade
+  )?.[0] ?? 'Custom'
 
   return (
     <div className="text-sm">
@@ -86,9 +130,17 @@ export default function ParamsPanel({ params, corridor, costBands, onParamsChang
 
       <Section title="Analysis" defaultOpen={false}>
         <Field label="Ruling grade window" unit="km" value={params.ruling_grade_length_km} onChange={v => set('ruling_grade_length_km', v)} step={1} min={1} max={50} />
+        <Toggle label="Constrain min track elevation" checked={minElevEnabled}
+          onChange={on => set('min_track_elev_m', on ? 0 : MIN_ELEV_DISABLED)} />
+        {minElevEnabled && (
+          <Field label="Min track elevation" unit="m" value={params.min_track_elev_m}
+            onChange={v => set('min_track_elev_m', v)} step={5} min={-100} max={5000} />
+        )}
       </Section>
 
       <Section title="Construction Costs" defaultOpen={false}>
+        <Toggle label="Double track" checked={doubleTrack} onChange={onDoubleTrackChange} />
+
         <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1">Cutting &amp; Filling ($/m³)</p>
         <Field label="Cut — Hard rock"   unit="$/m³" value={costBands.cut_A}       onChange={v => setCost('cut_A', v)}       step={5}   min={0} />
         <Field label="Cut — Med rock"    unit="$/m³" value={costBands.cut_B}       onChange={v => setCost('cut_B', v)}       step={5}   min={0} />
@@ -100,6 +152,22 @@ export default function ParamsPanel({ params, corridor, costBands, onParamsChang
         <Field label="Fill — Weak rock"  unit="$/m³" value={costBands.fill_C}      onChange={v => setCost('fill_C', v)}      step={5}   min={0} />
         <Field label="Fill — Soft gnd"   unit="$/m³" value={costBands.fill_D}      onChange={v => setCost('fill_D', v)}      step={5}   min={0} />
         <Field label="Fill — Unknown"    unit="$/m³" value={costBands.fill_unknown} onChange={v => setCost('fill_unknown', v)} step={5}  min={0} />
+
+        <details className="group mt-1">
+          <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300 select-none py-1">
+            <span className="group-open:rotate-90 inline-block transition-transform">▶</span> Depth / height multipliers
+          </summary>
+          <div className="pl-1 pt-1">
+            <Field label="Cut medium band"  unit="m" value={costBands.cut_band1_m}     onChange={v => setCost('cut_band1_m', v)}     step={1}    min={0} />
+            <Field label="Cut deep band"    unit="m" value={costBands.cut_band2_m}     onChange={v => setCost('cut_band2_m', v)}     step={1}    min={0} />
+            <Field label="Cut mult medium"  unit="×" value={costBands.cut_mult_medium} onChange={v => setCost('cut_mult_medium', v)} step={0.05} min={1} />
+            <Field label="Cut mult deep"    unit="×" value={costBands.cut_mult_deep}   onChange={v => setCost('cut_mult_deep', v)}   step={0.05} min={1} />
+            <Field label="Fill medium band" unit="m" value={costBands.fill_band1_m}    onChange={v => setCost('fill_band1_m', v)}    step={1}    min={0} />
+            <Field label="Fill high band"   unit="m" value={costBands.fill_band2_m}    onChange={v => setCost('fill_band2_m', v)}    step={1}    min={0} />
+            <Field label="Fill mult medium" unit="×" value={costBands.fill_mult_medium} onChange={v => setCost('fill_mult_medium', v)} step={0.05} min={1} />
+            <Field label="Fill mult high"   unit="×" value={costBands.fill_mult_high}  onChange={v => setCost('fill_mult_high', v)}  step={0.05} min={1} />
+          </div>
+        </details>
 
         <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-2">Tunnels ($/m)</p>
         <Field label="Tunnel — Hard rock"  unit="$/m" value={costBands.tunnel_A}       onChange={v => setCost('tunnel_A', v)}       step={1000} min={0} />
@@ -132,11 +200,31 @@ export default function ParamsPanel({ params, corridor, costBands, onParamsChang
         <Field label="Contingency" unit="%" value={costBands.contingency_pct} onChange={v => setCost('contingency_pct', v)} step={1} min={0} max={50} />
       </Section>
 
+      <Section title="Land Acquisition" defaultOpen={false}>
+        <Toggle label="Include land analysis" checked={land.include} onChange={v => setLand('include', v)} />
+        {land.include && <>
+          <Field label="Corridor width" unit="m" value={land.corridor_m} onChange={v => setLand('corridor_m', v)} step={5} min={5} max={200} />
+          <p className="text-xs text-slate-500 py-1 border-b border-navy-700 mb-1 mt-1">Category cost ($/m²)</p>
+          {LAND_CATEGORIES.map(cat => (
+            <Field key={cat} label={cat} unit="$/m²"
+              value={land.category_costs[cat] ?? 0}
+              onChange={v => setLandCost(cat, v)} step={1} min={0} />
+          ))}
+        </>}
+      </Section>
+
       <Section title="Route Optimiser" defaultOpen={false}>
-        <Field label="Corridor half-width" unit="km" value={corridor.corridor_km}     onChange={v => setC('corridor_km', v)}     step={5}   min={1}  max={100} />
-        <Field label="Layers"              unit=""   value={corridor.num_layers}      onChange={v => setC('num_layers', Math.round(v))}   step={1}   min={3}  max={20} />
-        <Field label="Candidates/layer"    unit=""   value={corridor.lateral_steps}   onChange={v => setC('lateral_steps', Math.round(v))} step={2}   min={3}  max={15} />
-        <Field label="Grade weight"        unit=""   value={corridor.weight_grade}    onChange={v => setC('weight_grade', v)}    step={1}   min={0.1} max={20} />
+        <Select label="Intensity" value={intensityName}
+          options={[...Object.keys(OPTIMISER_INTENSITY), 'Custom']}
+          onChange={n => n !== 'Custom' && onCorridorChange({ ...corridor, ...OPTIMISER_INTENSITY[n] })} />
+        <Select label="Objective" value={objectiveName}
+          options={[...Object.keys(OPTIMISER_OBJECTIVE), 'Custom']}
+          onChange={n => n !== 'Custom' && onCorridorChange({ ...corridor, ...OPTIMISER_OBJECTIVE[n] })} />
+        <Field label="Corridor half-width" unit="km" value={corridor.corridor_km}   onChange={v => setC('corridor_km', v)}     step={5}   min={1}  max={100} />
+        <Field label="Layers"              unit=""   value={corridor.num_layers}    onChange={v => setC('num_layers', Math.round(v))}   step={1} min={3}  max={20} />
+        <Field label="Candidates/layer"    unit=""   value={corridor.lateral_steps} onChange={v => setC('lateral_steps', Math.round(v))} step={2} min={3}  max={15} />
+        <Field label="Length weight"       unit=""   value={corridor.weight_length} onChange={v => setC('weight_length', v)}   step={0.1} min={0.1} max={20} />
+        <Field label="Grade weight"        unit=""   value={corridor.weight_grade}  onChange={v => setC('weight_grade', v)}    step={1}   min={0.1} max={20} />
       </Section>
     </div>
   )
