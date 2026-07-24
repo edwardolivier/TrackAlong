@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 function Stat({ label, value, unit, highlight }) {
   return (
     <div className="flex justify-between items-baseline py-1 border-b border-navy-700">
@@ -66,8 +68,9 @@ export default function ResultsPanel({ result }) {
 
   return (
     <div className="text-sm py-2">
-      <div className="px-3 py-2 border-b border-navy-700">
-        <h2 className="text-sky-400 font-semibold">Results</h2>
+      <div className="px-3 py-2 border-b border-navy-700 flex items-center">
+        <h2 className="text-sky-400 font-semibold flex-1">Results</h2>
+        <CopyReportButton result={result} minR={minR} />
       </div>
 
       <Section title="Geometry">
@@ -170,6 +173,97 @@ export default function ResultsPanel({ result }) {
       )}
     </div>
   )
+}
+
+function CopyReportButton({ result, minR }) {
+  const [copied, setCopied] = useState(false)
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(buildReport(result, minR))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <button onClick={copy}
+      className="text-xs px-2 py-0.5 rounded bg-navy-700 text-slate-400 hover:bg-navy-600">
+      {copied ? 'Copied ✓' : 'Copy report'}
+    </button>
+  )
+}
+
+function buildReport(result, minR) {
+  const al = result.alignment
+  const ca = result.cant
+  const co = result.costs
+  const geo = result.geology
+  const lz = result.land_zones
+  const coincident = result.coincident_violations || []
+  const M = v => `$${fmtM(v)}M`
+  const L = []
+
+  L.push('TrackAlong — Route Analysis', '='.repeat(30), '')
+  L.push(`Route length      : ${fmt(result.route_length_km)} km`)
+  L.push(`Max grade         : ${fmt(al.max_grade_pct, 2)} %  (ruling ${fmt(al.ruling_grade_pct, 2)} %)`)
+  L.push(`Grade compensation: ${al.grade_compensation_applied ? 'Yes' : 'No'}`, '')
+
+  L.push('EARTHWORKS')
+  L.push(`  Total cut   : ${fmt(al.total_cut_m3, 0)} m3`)
+  L.push(`  Total fill  : ${fmt(al.total_fill_m3, 0)} m3`)
+  L.push(`  Balance     : ${al.total_fill_m3 > 0 ? (al.total_cut_m3 / al.total_fill_m3).toFixed(2) : '—'} cut/fill`, '')
+
+  if (ca) {
+    L.push('HORIZONTAL & SPEED')
+    L.push(`  Min radius  : ${minR == null ? 'straight' : fmt(minR, 0) + ' m'}`)
+    L.push(`  Curves      : ${ca.curves?.length ?? 0}`)
+    L.push(`  Design speed: ${fmt(ca.design_speed_kph, 0)} km/h   Min on route: ${fmt(ca.min_speed_kph, 0)} km/h`, '')
+  }
+
+  L.push(`STRUCTURES  (tunnels ${al.tunnels.length}, bridges ${al.bridges.length})`)
+  al.tunnels.forEach((t, i) => L.push(
+    `  T${i + 1}: ch ${fmt(t.start_ch / 1000)}–${fmt(t.end_ch / 1000)} km, ${fmt(t.length_m, 0)} m, max depth ${fmt(t.max_depth, 0)} m`))
+  al.bridges.forEach((b, i) => L.push(
+    `  B${i + 1}: ch ${fmt(b.start_ch / 1000)}–${fmt(b.end_ch / 1000)} km, ${fmt(b.length_m, 0)} m, max height ${fmt(b.max_depth, 0)} m`))
+  L.push('')
+
+  L.push('COMPLIANCE')
+  L.push(`  Grade violations     : ${al.violations?.length ?? 0}`)
+  L.push(`  Coincident V+H curves: ${coincident.length}`)
+  L.push(`  Reverse-curve issues : ${ca?.reverse_violation_count ?? 0}`)
+  L.push(`  Speed restrictions   : ${ca?.speed_restricted_stations ?? 0} stations`)
+  L.push(`  Twist violations     : ${ca?.twist_violation_stations ?? 0} stations`)
+  L.push(`  Transition violations: ${ca?.transition_violation_count ?? 0}`, '')
+
+  if (geo) {
+    L.push('GEOLOGY')
+    L.push(`  Dominant class: ${geo.dominant_class}`)
+    Object.entries(geo.length_by_class || {}).forEach(([c, len]) => L.push(`  Class ${c}: ${fmt(len / 1000)} km`))
+    ;(geo.risk_notes || []).forEach(r => L.push(`  ! ${r}`))
+    L.push('')
+  }
+
+  if (co) {
+    L.push('COST ESTIMATE (AUD)')
+    L.push(`  Earthworks : ${M(co.subtotal_earthworks)}`)
+    L.push(`  Bridges    : ${M(co.subtotal_bridges)}`)
+    L.push(`  Tunnels    : ${M(co.subtotal_tunnels)}`)
+    L.push(`  Track      : ${M(co.subtotal_track)}`)
+    L.push(`  Rail systems: ${M(co.subtotal_systems)}`)
+    L.push(`  Contingency: ${M(co.contingency_amount)} (${co.contingency_pct}%)`)
+    L.push(`  TOTAL      : ${M(co.total)}  (${M(co.total / result.route_length_km)}/km)`, '')
+  }
+
+  if (lz && lz.total_cost > 0) {
+    L.push('LAND ACQUISITION')
+    L.push(`  Corridor area: ${fmt(lz.total_area_m2 / 10000)} ha`)
+    L.push(`  Est. cost    : ${M(lz.total_cost)}`)
+  }
+
+  return L.join('\n')
 }
 
 function CostBreakdown({ co }) {

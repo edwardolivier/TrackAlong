@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { login, logout, isLoggedIn, getToken } from './lib/auth'
-import { analyseRoute, optimiseRoute } from './lib/api'
+import { analyseRoute, optimiseRoute, listRoutes, loadRoute, deleteRoute, saveRoute } from './lib/api'
 import { DEFAULT_PARAMS, DEFAULT_CORRIDOR, DEFAULT_COST_BANDS, DEFAULT_LAND } from './lib/presets'
 import MapView from './components/MapView'
 import ParamsPanel from './components/ParamsPanel'
@@ -71,6 +71,81 @@ function LoginPage({ onLogin }) {
   )
 }
 
+function RoutesMenu({ waypoints, params, corridor, costBands, onLoad, setStatus }) {
+  const [open, setOpen] = useState(false)
+  const [routes, setRoutes] = useState([])
+  const [busy, setBusy] = useState(false)
+
+  async function refresh() {
+    try { setRoutes((await listRoutes()).routes) }
+    catch (e) { setStatus(`Error: ${e.message}`) }
+  }
+  function toggle() { const n = !open; setOpen(n); if (n) refresh() }
+
+  async function save() {
+    if (waypoints.length < 2) { setStatus('Add at least 2 waypoints before saving.'); return }
+    const name = window.prompt('Save route as:')
+    if (!name) return
+    setBusy(true)
+    try {
+      await saveRoute({ name, waypoints, params, cost_bands: costBands, corridor })
+      setStatus(`Saved “${name}”.`)
+      refresh()
+    } catch (e) { setStatus(`Error: ${e.message}`) } finally { setBusy(false) }
+  }
+
+  async function load(id) {
+    try {
+      const rec = await loadRoute(id)
+      onLoad(rec)
+      setOpen(false)
+      setStatus(`Loaded “${rec.name}”.`)
+    } catch (e) { setStatus(`Error: ${e.message}`) }
+  }
+
+  async function remove(id, e) {
+    e.stopPropagation()
+    try { await deleteRoute(id); refresh() }
+    catch (er) { setStatus(`Error: ${er.message}`) }
+  }
+
+  return (
+    <div className="relative">
+      <button onClick={toggle}
+        className="px-3 py-1 text-xs rounded bg-navy-700 text-slate-400 hover:bg-navy-600">
+        Routes ▾
+      </button>
+      {open && (
+        <div className="absolute right-0 top-8 w-64 bg-navy-800 border border-navy-700 rounded shadow-lg z-[2000] p-2">
+          <button onClick={save} disabled={busy}
+            className="w-full text-left text-xs px-2 py-1.5 rounded bg-navy-700 text-slate-200
+                       hover:bg-navy-600 disabled:opacity-50">
+            ＋ Save current route
+          </button>
+          <div className="mt-2 max-h-64 overflow-y-auto">
+            {routes.length === 0
+              ? <p className="text-xs text-slate-500 px-1 py-2">No saved routes</p>
+              : routes.map(r => (
+                <div key={r.id} onClick={() => load(r.id)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-navy-700 cursor-pointer">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-slate-200 truncate">{r.name}</div>
+                    <div className="text-[10px] text-slate-500">
+                      {r.n_waypoints} pts · {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
+                    </div>
+                  </div>
+                  <button onClick={e => remove(r.id, e)}
+                    className="text-slate-500 hover:text-red-400 text-xs px-1 shrink-0">✕</button>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(isLoggedIn())
   const [waypoints, setWaypoints] = useState([])
@@ -127,6 +202,14 @@ export default function App() {
     setStatus('')
   }
 
+  function handleLoadRoute(rec) {
+    setWaypoints(rec.waypoints || [])
+    if (rec.params) setParams(rec.params)
+    if (rec.cost_bands) setCostBands(rec.cost_bands)
+    if (rec.corridor) setCorridor(rec.corridor)
+    setResult(null)
+  }
+
   function handleLogout() {
     logout()
     setAuthed(false)
@@ -164,6 +247,9 @@ export default function App() {
           className="px-3 py-1 text-xs rounded bg-navy-700 text-slate-400 hover:bg-navy-600 disabled:opacity-40">
           Clear
         </button>
+
+        <RoutesMenu waypoints={waypoints} params={params} corridor={corridor} costBands={costBands}
+          onLoad={handleLoadRoute} setStatus={setStatus} />
 
         <button onClick={() => setShowResults(r => !r)}
           className="px-3 py-1 text-xs rounded bg-navy-700 text-slate-400 hover:bg-navy-600">
