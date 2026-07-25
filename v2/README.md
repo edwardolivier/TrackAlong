@@ -23,6 +23,11 @@ The backend refuses to start unless the secrets are set — there are no insecur
 | `APP_USERNAME` | no | `admin` | the single login name |
 | `TOKEN_EXPIRE_HOURS` | no | `8` | session lifetime |
 | `ALLOWED_ORIGINS` | no | localhost dev origins | comma-separated CORS allowlist |
+| `GCS_BUCKET` | no | — | GCS bucket for durable saved routes; falls back to local disk if unset |
+| `LOG_LEVEL` | no | `INFO` | logging verbosity |
+| `SENTRY_DSN` | no | — | enables Sentry error tracking when set (and sentry-sdk installed) |
+| `MAX_WAYPOINTS` | no | `100` | reject analyse/optimise requests with more waypoints |
+| `MAX_ROUTE_KM` | no | `2000` | reject routes longer than this |
 
 Generate the password hash (plaintext is never stored):
 

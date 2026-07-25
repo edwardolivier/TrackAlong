@@ -1,18 +1,32 @@
 from __future__ import annotations
 import os
 import pathlib
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from auth import verify_token, login
+from observability import configure_logging, init_sentry, RequestContextMiddleware, log
 from api.analyse import router as analyse_router
 from api.optimise_route import router as optimise_router
 from api.routes_store import router as routes_router
 
+configure_logging()
+init_sentry()
+
 app = FastAPI(title="TrackAlong API", version="2.0.0")
+
+app.add_middleware(RequestContextMiddleware)
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception(request: Request, exc: Exception):
+    """Log the full error server-side; return a generic message + request id to the client."""
+    rid = getattr(request.state, "request_id", "-")
+    log.exception("Unhandled error rid=%s on %s %s", rid, request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error", "request_id": rid})
 
 # Explicit origin allowlist — never the "*" + credentials combination (invalid per the
 # CORS spec and rejected by browsers). In production the SPA is served same-origin, so

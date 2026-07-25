@@ -1,6 +1,8 @@
 from __future__ import annotations
 import pathlib
 from fastapi import APIRouter, HTTPException
+from observability import log
+from validation import validate_waypoints
 from models.requests import AnalyseRequest
 from models.responses import (
     serialise_alignment, serialise_cant, serialise_costs,
@@ -46,13 +48,13 @@ def _build_cost_bands(c) -> CostBands:
 
 @router.post("/analyse")
 def analyse(req: AnalyseRequest):
-    if len(req.waypoints) < 2:
-        raise HTTPException(status_code=422, detail="At least 2 waypoints required")
+    validate_waypoints(req.waypoints)
 
     try:
         profile = fetch_profile(req.waypoints)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Elevation fetch failed: {exc}")
+    except Exception:
+        log.exception("Elevation fetch failed")
+        raise HTTPException(status_code=502, detail="Elevation service unavailable — please try again.")
 
     geom = _build_geom_params(req.params)
 
@@ -61,14 +63,15 @@ def analyse(req: AnalyseRequest):
         try:
             geology = fetch_geology(profile, _CACHE_DIR / "geology")
         except Exception:
-            pass  # non-fatal — analysis continues without geology data
+            log.warning("Geology fetch failed — continuing without it", exc_info=True)  # non-fatal
 
     radii = compute_radii(profile)
 
     try:
         alignment = optimise(profile, geom, radii=radii, geology=geology)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Optimiser failed: {exc}")
+    except Exception:
+        log.exception("Optimiser failed")
+        raise HTTPException(status_code=500, detail="Alignment optimisation failed.")
 
     cant = analyse_cant(alignment.chainage, radii, geom)
     coincident = detect_coincident_curves(
@@ -85,7 +88,7 @@ def analyse(req: AnalyseRequest):
                 category_costs=req.land_category_costs,
             )
         except Exception:
-            pass
+            log.warning("Land zoning failed — continuing without it", exc_info=True)  # non-fatal
 
     cost_bands = _build_cost_bands(req.cost_bands)
     costs = estimate_costs(alignment, geology, cost_bands, double_track=req.double_track)
