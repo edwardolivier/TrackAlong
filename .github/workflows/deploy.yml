@@ -70,10 +70,12 @@ jobs:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
           image: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/trackalong/${{ env.SERVICE }}:${{ github.sha }}
+          # Values are quoted because the action treats commas as delimiters, and an
+          # argon2 hash contains commas (m=65536,t=3,p=4). Quoting preserves them.
           env_vars: |
             APP_USERNAME=${{ secrets.APP_USERNAME }}
-            APP_PASSWORD_HASH=${{ secrets.APP_PASSWORD_HASH }}
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            APP_PASSWORD_HASH="${{ secrets.APP_PASSWORD_HASH }}"
+            SECRET_KEY="${{ secrets.SECRET_KEY }}"
             GCS_BUCKET=${{ secrets.GCS_BUCKET }}
 
       - name: Allow public access
