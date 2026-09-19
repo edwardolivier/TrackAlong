@@ -1,0 +1,4 @@
+# Downloaded ARTC documents are not committed; see README.md
+*
+!.gitignore
+!README.md
