@@ -40,3 +40,6 @@ v2/frontend/build/
 
 # Docker
 *.dockerignore
+
+# Tracker data (local SQLite db)
+tracker/data/
